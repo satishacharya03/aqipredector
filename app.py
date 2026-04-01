@@ -130,14 +130,61 @@ def manual_predict():
             "message": str(e)
         }), 400
 
+@app.route('/api/update', methods=['POST'])
+def update_sensor_data():
+    """
+    Endpoint for the local bridge script to sync real-time serial sensor data
+    to the cloud backend.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No data provided"}), 400
+            
+        t = float(data.get('temperature', 0))
+        h = float(data.get('humidity', 0))
+        g = float(data.get('gas_level', 0))
+        
+        # Calculate AQI using the ML model
+        from ml_predictor import predict_aqi
+        from serial_reader import log_to_csv
+        aqi = predict_aqi(t, h, g)
+        
+        # Synchronize with the latest_reading bridge used by /api/live
+        with data_lock:
+            latest_reading['temperature'] = t
+            latest_reading['humidity'] = h
+            latest_reading['gas_level'] = g
+            latest_reading['predicted_aqi'] = aqi
+            
+        # Log to the historical CSV
+        log_to_csv(t, h, g, aqi)
+        
+        return jsonify({
+            "status": "success",
+            "data": {
+                "temperature": t,
+                "humidity": h,
+                "gas_level": g,
+                "predicted_aqi": aqi
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 if __name__ == '__main__':
-    # 1. Start the hardware background thread so it can begin listening for ESP32 bytes immediately.
-    print("Booting up hardware daemon process...")
-    start_serial_daemon()
+    # 1. Start the hardware background thread ONLY IF we are running locally.
+    # On Render, we rely on the /api/update endpoint instead.
+    if os.environ.get('RENDER') is None:
+        print("Running locally. Booting up hardware daemon process...")
+        start_serial_daemon()
+    else:
+        print("Running on Render. Hardware daemon disabled. Please use /api/update.")
     
     # 2. Start the HTTP API routing engine.
-    # Set debug=False because the background serial thread can spawn multiple 
-    # redundant ghosts if Flask's hot-reloader triggers constantly during dev.
-    # Set host='0.0.0.0' so it is discoverable by other machines on the LAN if needed.
     print("Booting up Flask REST API server...")
     app.run(host='0.0.0.0', port=5000, debug=False)
