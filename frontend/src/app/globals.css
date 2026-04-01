@@ -53,13 +53,23 @@
   --color-primary: #99f7ff;
   --color-primary-fixed: #00f1fe;
   --color-primary-fixed-dim: #00e2ee;
+  --color-primary-dim: #00e2ee;
   --color-primary-container: #00f1fe;
   --color-on-primary: #005f64;
+  --color-on-primary-container: #00555a;
   --color-secondary: #9093ff;
   --color-secondary-container: #2f2ebe;
+  --color-secondary-fixed: #cdcdff;
+  --color-secondary-fixed-dim: #bdbeff;
+  --color-on-secondary: #080079;
+  --color-on-secondary-container: #ccccff;
   --color-tertiary: #c6fff3;
   --color-tertiary-container: #65fde6;
+  --color-tertiary-fixed: #65fde6;
+  --color-tertiary-fixed-dim: #54eed8;
+  --color-tertiary-dim: #48e5d0;
   --color-on-tertiary: #00685c;
+  --color-on-tertiary-container: #005e54;
   --color-surface: #060e1d;
   --color-surface-dim: #060e1d;
   --color-surface-bright: #1f2c44;
@@ -67,6 +77,9 @@
   --color-surface-container-low: #0a1324;
   --color-surface-container-high: #152034;
   --color-surface-container-highest: #1a263c;
+  --color-surface-container-lowest: #000000;
+  --color-surface-tint: #99f7ff;
+  --color-surface-variant: #1a263c;
   --color-on-surface: #dde5fb;
   --color-on-surface-variant: #a3abc0;
   --color-background: #060e1d;
@@ -74,8 +87,14 @@
   --color-outline: #6d7589;
   --color-outline-variant: #40485a;
   --color-error: #ff716c;
+  --color-error-dim: #d7383b;
   --color-error-container: #9f0519;
   --color-on-error: #490006;
+  --color-on-error-container: #ffa8a3;
+  --color-inverse-surface: #f9f9ff;
+  --color-inverse-on-surface: #4d5567;
+  --color-inverse-primary: #006a70;
+  
   --font-headline: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-label: 'Inter', sans-serif;

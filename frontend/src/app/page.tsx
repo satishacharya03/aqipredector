@@ -27,7 +27,7 @@ interface HistoryRow {
   Predicted_AQI: number
 }
 
-const API = 'http://127.0.0.1:5000'
+const API = 'https://aqipredector.onrender.com'
 
 // AQI 0–500 mapped to arc dashoffset (circumference r=140 → 879.6)
 function aqiOffset(aqi: number) {
