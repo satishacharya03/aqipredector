@@ -1,4 +1,4 @@
-\"\"\"
+"""
 How to run this code:
 1. Ensure you have Python 3.x installed on your system.
 2. Open a terminal/command prompt in this folder ('d:\\AI BCKND').
@@ -9,22 +9,23 @@ How to run this code:
    
 Note: The server will run on http://127.0.0.1:5000/ by default.
 It will also attempt to connect to the ESP32 on COM3.
-\"\"\"
+"""
 
 import os
 import pandas as pd
 from flask import Flask, jsonify, request
-from flask_cors import cross_origin
+from flask_cors import CORS
 
 from serial_reader import start_serial_daemon, latest_reading, data_lock, CSV_FILE
 
 # Initialize the primary Flask application instance
 app = Flask(__name__)
+# Enable CORS globally for all domains during development (fixes OPTIONS preflight hanging)
+CORS(app)
 
 @app.route('/api/live', methods=['GET'])
-@cross_origin(origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"])
 def get_live_data():
-    \"\"\"
+    """
     Endpoint for fetching the absolute latest hardware metrics and ML predictions.
 
     When the frontend queries this endpoint, it safely taps into the global dictionary 
@@ -33,7 +34,7 @@ def get_live_data():
     
     Returns:
         JSON response featuring 4 data points packaged inside a 'success' object.
-    \"\"\"
+    """
     
     # We acquire the global lock defined in serial_reader to safely read the values
     # without risk of it mutating concurrently.
@@ -47,9 +48,8 @@ def get_live_data():
 
 
 @app.route('/api/history', methods=['GET'])
-@cross_origin(origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"])
 def get_history_data():
-    \"\"\"
+    """
     Endpoint for fetching historical data to plot on the frontend dashboard chart.
 
     It seeks 'history_log.csv', loads it via Pandas to efficiently handle slicing, 
@@ -58,7 +58,7 @@ def get_history_data():
     Returns:
         JSON response with an array of the 20 most recent row objects containing 
         Timestamp, Temperature, Humidity, Gas_Level, and Predicted_AQI.
-    \"\"\"
+    """
     
     # Check if the log file even exists yet. If not, fallback instantly and return an empty array
     if not os.path.exists(CSV_FILE):
@@ -95,12 +95,11 @@ def get_history_data():
 
 
 @app.route('/api/predict', methods=['POST'])
-@cross_origin(origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"])
 def manual_predict():
-    \"\"\"
+    """
     Endpoint for manually entering data and getting a prediction purely from the model 
     without relying on the ESP32 hardware loop. Expects JSON body.
-    \"\"\"
+    """
     try:
         data = request.get_json()
         if not data:

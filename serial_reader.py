@@ -27,10 +27,10 @@ latest_reading = {
 data_lock = threading.Lock()
 
 def initialize_csv():
-    \"\"\"
+    """
     Initializes the historical CSV file with the proper headers if it does not
     already exist in the directory.
-    \"\"\"
+    """
     file_exists = os.path.isfile(CSV_FILE)
     if not file_exists:
         with open(CSV_FILE, mode='w', newline='') as file:
@@ -39,7 +39,7 @@ def initialize_csv():
 
 
 def log_to_csv(temp: float, humidity: float, gas_level: float, predicted_aqi: float):
-    \"\"\"
+    """
     Appends a formatted new row to the historical CSV log containing the current timestamp 
     and the metrics captured from the ESP32 plus the calculated AQI.
     
@@ -48,7 +48,7 @@ def log_to_csv(temp: float, humidity: float, gas_level: float, predicted_aqi: fl
         humidity: Humidity percentage.
         gas_level: Gas sensor concentration.
         predicted_aqi: The final predicted/mocked ML AQI score.
-    \"\"\"
+    """
     # Generate ISO-8601 formatted timestamp string
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -62,7 +62,7 @@ def log_to_csv(temp: float, humidity: float, gas_level: float, predicted_aqi: fl
 
 
 def serial_read_loop(port: str, baud_rate: int):
-    \"\"\"
+    """
     The core loop running inside the daemon thread. It perpetually attempts to listen
     to the defined Serial comport and parses inbound data lines format: 
     "Temperature,Humidity,GasLevel\\n". Upon reading, it updates the global variable
@@ -71,7 +71,7 @@ def serial_read_loop(port: str, baud_rate: int):
     Args:
         port: The physical COM endpoint (e.g., 'COM3' or '/dev/ttyUSB0').
         baud_rate: Rate of transmission bits.
-    \"\"\"
+    """
     # Ensure our log exists before writing indefinitely
     initialize_csv()
     
@@ -133,12 +133,12 @@ def serial_read_loop(port: str, baud_rate: int):
 
 
 def start_serial_daemon():
-    \"\"\"
+    """
     Boots up the serial reading job inside of an isolated background thread.
     This ensures that the main Flask thread is 100% liberated to answer API fetching
     calls at max speed. Setting daemon=True enables Python to kill/shutdown the
     background thread gracefully when the main Flask process terminates.
-    \"\"\"
+    """
     worker = threading.Thread(
         target=serial_read_loop, 
         args=(SERIAL_PORT, BAUD_RATE),

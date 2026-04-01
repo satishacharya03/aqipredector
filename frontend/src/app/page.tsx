@@ -1,171 +1,226 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { Thermometer, Droplets, Wind, Activity } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+const AqiChart = dynamic(() => import('@/components/AqiChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 flex items-center justify-center">
+      <span className="text-[#40485a] text-sm">Loading chart...</span>
+    </div>
+  )
+})
+
+interface LiveData {
+  temperature: number
+  humidity: number
+  gas_level: number
+  predicted_aqi: number
+}
+interface HistoryRow {
+  Timestamp: string
+  Temperature: number
+  Humidity: number
+  Gas_Level: number
+  Predicted_AQI: number
+}
+
+const API = 'http://127.0.0.1:5000'
+
+// AQI 0–500 mapped to arc dashoffset (circumference r=140 → 879.6)
+function aqiOffset(aqi: number) {
+  const pct = Math.min(Math.max(aqi, 0), 300) / 300
+  return 879.6 - pct * 879.6
+}
+
 
 export default function Dashboard() {
-  const [liveData, setLiveData] = useState({ temperature: 0, humidity: 0, gas_level: 0, predicted_aqi: 0 })
-  const [history, setHistory] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [live, setLive] = useState<LiveData>({ temperature: 0, humidity: 0, gas_level: 0, predicted_aqi: 0 })
+  const [history, setHistory] = useState<HistoryRow[]>([])
+  const [connected, setConnected] = useState(false)
 
-  // Poll Data Logic
-  useEffect(() => {
-    const fetchLive = async () => {
-      try {
-        const res = await fetch('http://127.0.0.1:5000/api/live')
-        if (res.ok) {
-          const json = await res.json()
-          setLiveData(json.data)
-        }
-      } catch (e) {
-        setError('Lost connection to backend server.')
-      }
-    }
-
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch('http://127.0.0.1:5000/api/history')
-        if (res.ok) {
-          const json = await res.json()
-          setHistory(json.data)
-          setError('')
-        }
-      } catch (e) {
-        setError('Lost connection to backend server.')
-      }
-    }
-
-    // Initial fetch
-    fetchLive()
-    fetchHistory()
-    setLoading(false)
-
-    // Poll every 2 seconds
-    const interval = setInterval(() => {
-      fetchLive()
-      fetchHistory() // History might be heavy, but required for live chart updates
-    }, 2000)
-
-    return () => clearInterval(interval)
+  const fetchLive = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/live`)
+      if (r.ok) { const j = await r.json(); setLive(j.data); setConnected(true) }
+    } catch { setConnected(false) }
   }, [])
 
-  // Dynamic color for AQI widget
-  const getAqiColor = (aqi: number) => {
-    if (aqi <= 50) return 'text-emerald-400 border-emerald-500/30 shadow-emerald-500/10'
-    if (aqi <= 100) return 'text-amber-400 border-amber-500/30 shadow-amber-500/10'
-    return 'text-rose-500 border-rose-500/30 shadow-rose-500/10'
-  }
+  const fetchHistory = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/history`)
+      if (r.ok) { const j = await r.json(); setHistory(j.data) }
+    } catch {}
+  }, [])
 
-  if (loading) return <div className="text-center mt-20 animate-pulse text-slate-400">Booting neural link...</div>
+  useEffect(() => {
+    fetchLive(); fetchHistory()
+    const id = setInterval(() => { fetchLive(); fetchHistory() }, 2500)
+    return () => clearInterval(id)
+  }, [fetchLive, fetchHistory])
+
+  const aqi = live.predicted_aqi
+  const aqiLabel = aqi <= 50 ? 'Good' : aqi <= 100 ? 'Moderate' : aqi <= 150 ? 'Unhealthy' : 'Hazardous'
+  const aqiColor = aqi <= 50 ? '#99f7ff' : aqi <= 100 ? '#fbbf24' : '#ff716c'
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      
-      {/* Header section */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white mb-1">Global Hardware Feed</h2>
-          <p className="text-slate-400">Listening to ESP32 / COM3 and Live Machine Learning Models</p>
-        </div>
-        {error && <div className="text-rose-400 text-sm font-semibold animate-pulse border border-rose-500/20 bg-rose-500/10 px-3 py-1 rounded-full">{error}</div>}
-      </div>
+    <div className="min-h-screen">
+      {/* Ambient Blobs */}
+      <div className="ambient-glow bg-[#2f2ebe]" style={{ top: '-20%', left: '-10%' }} />
+      <div className="ambient-glow bg-[#00f1fe]" style={{ bottom: '-10%', right: '-5%' }} />
 
-      {/* Bento Grid layout for KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-white/5 rounded-2xl p-6 shadow-xl transition-all hover:border-teal-500/30">
-          <div className="flex items-center justify-between text-slate-400 mb-4">
-            <span className="font-medium text-sm">Temperature</span>
-            <Thermometer className="w-5 h-5 text-teal-400" />
-          </div>
-          <div className="text-4xl font-bold tracking-tighter text-white">
-            {liveData.temperature.toFixed(1)}<span className="text-xl text-slate-500 font-normal">°C</span>
+      {/* ── Top Nav ───────────────────────────── */}
+      <nav className="fixed top-0 w-full z-50 bg-slate-950/40 backdrop-blur-xl flex justify-between items-center px-8 py-4 shadow-[0_8px_32px_rgba(0,242,255,0.05)]">
+        <div className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent font-headline tracking-tight">
+          AetherLab
+        </div>
+        <div className="hidden md:flex items-center gap-8">
+          <Link href="/" className="text-cyan-400 border-b-2 border-cyan-400 pb-1 font-headline tracking-tight transition-all active:scale-95 duration-200">Dashboard</Link>
+          <Link href="/manual" className="text-slate-400 hover:text-cyan-300 transition-colors font-headline tracking-tight active:scale-95 duration-200">AI Forecast</Link>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 text-xs">
+            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-red-400'}`} />
+            <span className="text-slate-400">{connected ? 'Live' : 'Offline'}</span>
           </div>
         </div>
+      </nav>
 
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-white/5 rounded-2xl p-6 shadow-xl transition-all hover:border-blue-500/30">
-          <div className="flex items-center justify-between text-slate-400 mb-4">
-            <span className="font-medium text-sm">Humidity</span>
-            <Droplets className="w-5 h-5 text-blue-400" />
-          </div>
-          <div className="text-4xl font-bold tracking-tighter text-white">
-            {liveData.humidity.toFixed(1)}<span className="text-xl text-slate-500 font-normal">%</span>
-          </div>
-        </div>
+      {/* ── Icon Sidebar ──────────────────────── */}
+      <aside className="hidden lg:flex flex-col h-screen w-16 fixed left-0 top-0 border-r border-white/5 bg-slate-950/60 backdrop-blur-2xl items-center gap-8 pt-24 z-40 py-6">
+        <Link href="/" className="flex items-center justify-center text-cyan-400 bg-cyan-500/10 w-10 h-10 rounded-lg border-l-4 border-cyan-400">
+          <span className="material-symbols-outlined">sensors</span>
+        </Link>
+        <Link href="/manual" className="flex items-center justify-center text-slate-500 hover:text-cyan-200 hover:bg-indigo-500/10 w-10 h-10 rounded-lg transition-all">
+          <span className="material-symbols-outlined">auto_awesome</span>
+        </Link>
+      </aside>
 
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-white/5 rounded-2xl p-6 shadow-xl transition-all hover:border-amber-500/30">
-          <div className="flex items-center justify-between text-slate-400 mb-4">
-            <span className="font-medium text-sm">Gas Sensor</span>
-            <Wind className="w-5 h-5 text-amber-400" />
-          </div>
-          <div className="text-4xl font-bold tracking-tighter text-white">
-            {liveData.gas_level.toFixed(0)}<span className="text-xl text-slate-500 font-normal">px</span>
-          </div>
-        </div>
+      {/* ── Main Content ──────────────────────── */}
+      <main className="pt-28 pb-12 px-8 lg:pl-24 max-w-[1600px] mx-auto grid grid-cols-12 gap-8">
 
-        <div className={`bg-slate-800/30 backdrop-blur-xl border-2 rounded-2xl p-6 shadow-2xl transition-all ${getAqiColor(liveData.predicted_aqi)}`}>
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-bold text-sm tracking-wide uppercase opacity-80">Predicted AQI</span>
-            <Activity className="w-5 h-5 animate-pulse" />
+        {/* Left: Large Radial AQI Gauge */}
+        <section className="col-span-12 lg:col-span-7 xl:col-span-8 glass-panel rounded-xl p-10 flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="absolute top-6 left-8">
+            <h2 className="font-headline text-[#a3abc0] text-sm uppercase tracking-[0.2em]">Air Pollution Level Prediction</h2>
+            <p className="text-2xl font-headline font-bold text-[#dde5fb] mt-1">Live Sensor Feed</p>
           </div>
-          <div className="text-5xl font-black tracking-tighter">
-            {liveData.predicted_aqi.toFixed(1)}
-          </div>
-        </div>
-      </div>
 
-      {/* Recharts Historical Graph */}
-      <div className="bg-slate-800/50 backdrop-blur-lg border border-white/5 rounded-3xl p-6 lg:p-8 mt-8 shadow-2xl">
-        <h3 className="text-xl font-bold text-white mb-6">Historical Log Trajectory</h3>
-        
-        {history.length > 0 ? (
-           <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis 
-                  dataKey="Timestamp" 
-                  stroke="#94a3b8" 
-                  fontSize={12} 
-                  tickFormatter={(val) => val.split(' ')[1]} 
-                />
-                <YAxis yAxisId="left" stroke="#34d399" fontSize={12} tickCount={6} />
-                <YAxis yAxisId="right" orientation="right" stroke="#fbbf24" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #ffffff20', borderRadius: '12px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="Predicted_AQI" 
-                  stroke="#34d399" 
-                  strokeWidth={3}
-                  activeDot={{ r: 8 }} 
-                  dot={false}
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="Gas_Level" 
-                  stroke="#fbbf24" 
-                  strokeWidth={2} 
-                  opacity={0.5}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="relative flex items-center justify-center mt-8">
+            <svg className="w-80 h-80 transform -rotate-90">
+              <circle cx="160" cy="160" fill="transparent" r="140" stroke="#1a263c" strokeWidth="12" />
+              <circle
+                cx="160" cy="160" fill="transparent" r="140"
+                stroke={aqiColor}
+                strokeWidth="12"
+                strokeDasharray="879.6"
+                strokeDashoffset={aqiOffset(aqi)}
+                strokeLinecap="round"
+                style={{ filter: `drop-shadow(0 0 8px ${aqiColor})`, transition: 'stroke-dashoffset 1s ease, stroke 0.5s ease' }}
+              />
+            </svg>
+            <div className="absolute flex flex-col items-center text-center">
+              <span className="font-headline text-7xl font-bold text-[#dde5fb]">{aqi.toFixed(0)}</span>
+              <span className="font-headline font-bold tracking-widest uppercase text-sm mt-2" style={{ color: aqiColor }}>{aqiLabel}</span>
+              <span className="text-[#a3abc0] text-xs mt-1">Gas: {live.gas_level.toFixed(0)} ppm</span>
+            </div>
           </div>
-        ) : (
-          <div className="h-80 w-full flex items-center justify-center border-2 border-dashed border-white/5 rounded-2xl">
-            <p className="text-slate-500 font-medium">Insufficient Historical Data in backend (CSV might be empty)</p>
-          </div>
-        )}
-      </div>
 
+          <div className="mt-12 flex gap-12 w-full justify-center">
+            <div className="text-center">
+              <p className="text-[#a3abc0] text-xs font-label uppercase tracking-wider">Temperature</p>
+              <p className="font-headline text-xl mt-1">{live.temperature.toFixed(1)} <span className="text-xs text-[#6d7589]">°C</span></p>
+            </div>
+            <div className="text-center">
+              <p className="text-[#a3abc0] text-xs font-label uppercase tracking-wider">Humidity</p>
+              <p className="font-headline text-xl mt-1">{live.humidity.toFixed(1)} <span className="text-xs text-[#6d7589]">%</span></p>
+            </div>
+            <div className="text-center">
+              <p className="text-[#a3abc0] text-xs font-label uppercase tracking-wider">Gas Level</p>
+              <p className="font-headline text-xl mt-1">{live.gas_level.toFixed(0)} <span className="text-xs text-[#6d7589]">ppm</span></p>
+            </div>
+          </div>
+        </section>
+
+        {/* Right: Metric Cards */}
+        <aside className="col-span-12 lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
+          {/* Temperature */}
+          <div className="glass-panel rounded-xl p-6 flex justify-between items-center hover:bg-white/5 transition-all">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-[#2f2ebe]/30 flex items-center justify-center text-[#9093ff]">
+                <span className="material-symbols-outlined">thermostat</span>
+              </div>
+              <div>
+                <p className="text-[#a3abc0] text-xs uppercase tracking-widest font-label">Temperature</p>
+                <p className="font-headline text-3xl font-medium">{live.temperature.toFixed(1)}<span className="text-[#a3abc0] text-lg">°C</span></p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[#c6fff3] text-xs">Ambient</p>
+              <p className="text-[#a3abc0] text-[10px]">ESP32 Sensor</p>
+            </div>
+          </div>
+
+          {/* Humidity */}
+          <div className="glass-panel rounded-xl p-6 flex justify-between items-center hover:bg-white/5 transition-all">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-[#00f1fe]/20 flex items-center justify-center text-[#99f7ff]">
+                <span className="material-symbols-outlined">humidity_percentage</span>
+              </div>
+              <div>
+                <p className="text-[#a3abc0] text-xs uppercase tracking-widest font-label">Humidity</p>
+                <p className="font-headline text-3xl font-medium">{live.humidity.toFixed(1)}<span className="text-[#a3abc0] text-lg">%</span></p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[#99f7ff] text-xs">Relative</p>
+              <p className="text-[#a3abc0] text-[10px]">DHT Sensor</p>
+            </div>
+          </div>
+
+          {/* Gas Concentration */}
+          <div className="glass-panel rounded-xl p-6 hover:bg-white/5 transition-all">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-lg bg-[#65fde6]/20 flex items-center justify-center text-[#c6fff3]">
+                <span className="material-symbols-outlined">air</span>
+              </div>
+              <div>
+                <p className="text-[#a3abc0] text-xs uppercase tracking-widest font-label">Gas Concentration</p>
+                <p className="font-headline text-3xl font-medium">{live.gas_level.toFixed(0)}<span className="text-[#a3abc0] text-lg">ppm</span></p>
+              </div>
+            </div>
+            <div className="w-full bg-[#1a263c] h-1 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-1000"
+                style={{
+                  width: `${Math.min((live.gas_level / 1000) * 100, 100)}%`,
+                  background: 'linear-gradient(to right, #99f7ff, #9093ff)'
+                }}
+              />
+            </div>
+            <p className="text-[#a3abc0] text-[10px] mt-2">Threshold: 1000 ppm (Safety Limit)</p>
+          </div>
+        </aside>
+
+        {/* Bottom: Area Chart */}
+        <section className="col-span-12 glass-panel rounded-xl p-8">
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h3 className="font-headline text-[#a3abc0] text-sm uppercase tracking-[0.2em]">Temporal Analysis</h3>
+              <p className="text-2xl font-headline font-bold text-[#dde5fb] mt-1">Pollution History Log</p>
+            </div>
+          </div>
+
+          <AqiChart data={history} />
+
+          {/* Time row hint */}
+          <div className="flex justify-between mt-4 text-[10px] font-label text-[#a3abc0] uppercase tracking-widest px-1">
+            <span>Oldest</span><span>→</span><span>Latest</span>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }

@@ -8,7 +8,7 @@ MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'interlink
 model = joblib.load(MODEL_PATH)
 
 def predict_aqi(temperature: float, humidity: float, gas_level: float) -> float:
-    \"\"\"
+    """
     Predicts the Air Quality Index (AQI) based on environmental sensor readouts.
     
     This function utilizes a pre-trained Scikit-Learn regression model pipeline
@@ -21,7 +21,7 @@ def predict_aqi(temperature: float, humidity: float, gas_level: float) -> float:
         
     Returns:
         float: The calculated machine-learning-predicted AQI rounded to 2 decimal places.
-    \"\"\"
+    """
     # We wrap the inputs in a 2D array (1 sample, 3 features) as required by Scikit-Learn predictors.
     prediction_result = model.predict([[temperature, humidity, gas_level]])
     
