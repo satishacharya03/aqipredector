@@ -1,15 +1,17 @@
 import threading
 import time
 import serial
+import serial.tools.list_ports
 import csv
 import os
+import re
 from datetime import datetime
 
 # Import the ML integration model to calculate AQI instantly up receiving data
 from ml_predictor import predict_aqi
 
-# Default serial settings. Change 'COM3' to the appropriate port mapping.
-SERIAL_PORT = 'COM3'
+# Default serial settings. Set to 'AUTO' to automatically detect Arduino/ESP32, or specify e.g., 'COM3'
+SERIAL_PORT = 'AUTO'
 BAUD_RATE = 115200
 
 # File path for the CSV data logs
@@ -25,6 +27,25 @@ latest_reading = {
     "predicted_aqi": 0.0
 }
 data_lock = threading.Lock()
+
+def auto_detect_port():
+    """
+    Scans available COM ports and attempts to find an Arduino/ESP32.
+    Returns the port name if found, else None.
+    """
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        # Common identifiers for Arduino/ESP32 USB-to-Serial chips
+        desc = port.description.upper()
+        if "ARDUINO" in desc or "CH340" in desc or "CP210" in desc or "UART" in desc:
+            return port.device
+    
+    # Fallback to the first available port if nothing specific matches
+    if len(ports) > 0:
+        return ports[0].device
+        
+    return None
+
 
 def initialize_csv():
     """
@@ -78,25 +99,37 @@ def serial_read_loop(port: str, baud_rate: int):
     # We use a while loop to continually attempt reconnection if the ESP32 unplugs
     while True:
         try:
-            print(f"Attempting to connect to ESP32 on {port} at {baud_rate} baud...")
+            current_port = port
+            if current_port == 'AUTO':
+                detected = auto_detect_port()
+                if detected:
+                    current_port = detected
+                else:
+                    print("No serial devices found. Waiting for Arduino/ESP32 to be plugged in...")
+                    time.sleep(5)
+                    continue
+
+            print(f"Attempting to connect to ESP32/Arduino on {current_port} at {baud_rate} baud...")
             # Set a 2-second timeout so readline doesn't block forever if no data
-            ser = serial.Serial(port, baud_rate, timeout=2)
+            ser = serial.Serial(current_port, baud_rate, timeout=2)
             
-            print("Successfully connected to the serial port.")
+            print(f"Successfully connected to the serial port {current_port}.")
             
             # Now loop internally parsing data continuously
             while True:
                 # Read bytes and decode to UTF-8 ASCII string. Removes trailing \\r\\n spaces
                 line = ser.readline().decode('utf-8').strip()
                 
-                # We expect the payload to be 3 comma-separated numbers: "25.5,60.2,450"
+                # We extract any 3 numbers from the line using regex. 
+                # This makes it super forgiving if member1 sends "Temp: 25.5, Hum: 60.2, Gas: 450"
                 if line:
-                    parts = line.split(',')
-                    if len(parts) == 3:
+                    # Find all integer or float numbers in the string
+                    numbers = re.findall(r"[-+]?\d*\.\d+|\d+", line)
+                    if len(numbers) >= 3:
                         try:
-                            t = float(parts[0])
-                            h = float(parts[1])
-                            g = float(parts[2])
+                            t = float(numbers[0])
+                            h = float(numbers[1])
+                            g = float(numbers[2])
                             
                             # Pipe parameters into the ML model to get our final result
                             aqi = predict_aqi(t, h, g)
