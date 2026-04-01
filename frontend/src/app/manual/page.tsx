@@ -41,7 +41,17 @@ export default function ManualForecast() {
   }
 
   const aqi = result?.aqi ?? 0
-  const aqiLabel = aqi <= 50 ? 'Good' : aqi <= 100 ? 'Moderate' : aqi <= 150 ? 'Unhealthy' : 'Hazardous'
+  
+  const getAqiInfo = (val: number) => {
+    if (val <= 50) return { label: 'Good', uiColor: 'text-emerald-400' };
+    if (val <= 100) return { label: 'Moderate', uiColor: 'text-yellow-400' };
+    if (val <= 150) return { label: 'Sensitive', uiColor: 'text-orange-400' };
+    if (val <= 200) return { label: 'Unhealthy', uiColor: 'text-red-500' };
+    if (val <= 300) return { label: 'Very Unhealthy', uiColor: 'text-purple-500' };
+    return { label: 'Hazardous', uiColor: 'text-rose-800' };
+  }
+  
+  const aqiInfo = getAqiInfo(aqi);
   const confidence = result ? (98 + Math.random() * 1.5).toFixed(1) : '—'
 
   // We are forcing the "AI Pollution Forecast" label per user's rebranding request
@@ -162,14 +172,14 @@ export default function ManualForecast() {
                 <svg className="w-full h-full transform -rotate-90">
                   <circle className="text-surface-container-highest" cx="128" cy="128" fill="transparent" r="110" stroke="currentColor" strokeWidth="12" />
                   <circle 
-                    className="text-primary drop-shadow-[0_0_8px_rgba(153,247,255,0.6)] transition-all duration-1000" 
+                    className={`${result ? aqiInfo.uiColor : 'text-primary'} drop-shadow-[0_0_8px_rgba(153,247,255,0.6)] transition-all duration-1000`} 
                     cx="128" cy="128" fill="transparent" r="110" stroke="currentColor" 
                     strokeDasharray="691" strokeDashoffset={result ? 691 - (Math.min(result.aqi, 300) / 300) * 691 : 691} strokeLinecap="round" strokeWidth="12" 
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-7xl font-headline font-bold text-on-surface">{result ? result.aqi.toFixed(0) : '--'}</span>
-                  <span className="text-xs font-label uppercase tracking-widest text-primary-dim mt-2">{result ? aqiLabel : 'Awaiting Data'}</span>
+                  <span className={`text-7xl font-headline font-bold ${result ? aqiInfo.uiColor : 'text-on-surface'}`}>{result ? result.aqi.toFixed(0) : '--'}</span>
+                  <span className={`text-xs font-label uppercase tracking-widest mt-2 ${result ? aqiInfo.uiColor : 'text-primary-dim'}`}>{result ? aqiInfo.label : 'Awaiting Data'}</span>
                 </div>
               </div>
 
