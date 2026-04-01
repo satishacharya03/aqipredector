@@ -13,7 +13,7 @@ It will also attempt to connect to the ESP32 on COM3.
 
 import os
 import pandas as pd
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import cross_origin
 
 from serial_reader import start_serial_daemon, latest_reading, data_lock, CSV_FILE
@@ -92,6 +92,44 @@ def get_history_data():
             "message": str(e)
         }), 500
 
+
+
+@app.route('/api/predict', methods=['POST'])
+@cross_origin(origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"])
+def manual_predict():
+    \"\"\"
+    Endpoint for manually entering data and getting a prediction purely from the model 
+    without relying on the ESP32 hardware loop. Expects JSON body.
+    \"\"\"
+    try:
+        data = request.get_json()
+        if not data:
+            raise ValueError("No JSON payload provided")
+            
+        t = float(data.get('temperature', 0))
+        h = float(data.get('humidity', 0))
+        g = float(data.get('gas_level', 0))
+        
+        # Import predictor locally to avoid circular dependencies if any, 
+        # though it's already safely imported in serial_reader initially.
+        from ml_predictor import predict_aqi
+        aqi = predict_aqi(t, h, g)
+        
+        return jsonify({
+            "status": "success",
+            "data": {
+                "temperature": t,
+                "humidity": h,
+                "gas_level": g,
+                "predicted_aqi": aqi
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
 
 if __name__ == '__main__':
     # 1. Start the hardware background thread so it can begin listening for ESP32 bytes immediately.
