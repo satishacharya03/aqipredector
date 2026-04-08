@@ -74,8 +74,9 @@ export default function Dashboard() {
       {/* ── Top Nav ───────────────────────────── */}
       <nav className="fixed top-0 w-full z-50 bg-slate-950/40 backdrop-blur-xl flex justify-between items-center px-8 py-4 shadow-[0_8px_32px_rgba(0,242,255,0.05)]">
         <div className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent font-headline tracking-tight">
-          AetherLab
+          Pollution check Lab
         </div>
+        <p>by 405-A</p>
         <div className="hidden md:flex items-center gap-8">
           <Link href="/" className="text-cyan-400 border-b-2 border-cyan-400 pb-1 font-headline tracking-tight transition-all active:scale-95 duration-200">Dashboard</Link>
           <Link href="/manual" className="text-slate-400 hover:text-cyan-300 transition-colors font-headline tracking-tight active:scale-95 duration-200">AI Forecast</Link>
@@ -104,7 +105,7 @@ export default function Dashboard() {
         {/* Left: Large Radial AQI Gauge */}
         <section className="col-span-12 lg:col-span-7 xl:col-span-8 glass-panel rounded-xl p-10 flex flex-col items-center justify-center relative overflow-hidden">
           <div className="absolute top-6 left-8">
-            <h2 className="font-headline text-[#a3abc0] text-sm uppercase tracking-[0.2em]">Air Pollution Level Prediction</h2>
+            <h2 className="font-headline text-[#a3abc0] text-sm uppercase tracking-[0.2em]">Air Quality Index Prediction</h2>
             <p className="text-2xl font-headline font-bold text-[#dde5fb] mt-1">Live Sensor Feed</p>
           </div>
 

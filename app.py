@@ -7,7 +7,7 @@ How to run this code:
 4. Start the backend server by running:
    python app.py
    
-Note: The server will run on http://127.0.0.1:5000/ by default.
+Note: The server will run on by default.
 It will also attempt to connect to the ESP32 on COM3.
 """
 
