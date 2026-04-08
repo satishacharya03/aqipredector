@@ -12,7 +12,7 @@ RENDER_URL = "https://aqipredector.onrender.com"
 UPDATE_ENDPOINT = f"{RENDER_URL}/api/update"
 
 BAUD_RATE = 115200
-SERIAL_PORT = 'AUTO' # Set to 'COM3' etc. if auto-detect fails
+SERIAL_PORT = 'COM3' # Set to 'COM3' etc. if auto-detect fails
 
 def auto_detect_port():
     ports = serial.tools.list_ports.comports()

@@ -17,6 +17,8 @@
 #define DHTPIN 2       // Digital pin connected to the DHT sensor (D2)
 #define DHTTYPE DHT11  // Change to DHT22 if using a DHT22 sensor
 #define MQ_PIN A0      // Analog pin connected to the MQ Gas Sensor (A0)
+#define BUZZER_PIN 5   // Buzzer connected to pin 5
+#define GAS_ALARM_THRESHOLD 450 // Trigger buzzer if gas level exceeds this
 
 // Initialize DHT sensor instance
 DHT dht(DHTPIN, DHTTYPE);
@@ -25,12 +27,24 @@ void setup() {
   // MUST match the BAUD_RATE found in backend's serial_reader.py (115200)
   Serial.begin(115200);
   
+  pinMode(BUZZER_PIN, OUTPUT);
+  
   // Wait for the serial port to connect (required for native USB boards like Leonardo/ESP32)
   while (!Serial) { 
     ; 
   }
 
   Serial.println("System Booting...");
+  
+  // Startup beep
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+  delay(100);
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+
   Serial.println("Initializing DHT Sensor...");
   
   // Start the DHT sensor
