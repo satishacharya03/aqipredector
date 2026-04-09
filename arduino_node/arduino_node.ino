@@ -14,11 +14,11 @@
 #include "DHT.h"
 
 // --- Hardware Pin Configurations ---
-#define DHTPIN 2       // Digital pin connected to the DHT sensor (D2)
+#define DHTPIN 8      // Digital pin connected to the DHT sensor (D8)
 #define DHTTYPE DHT11  // Change to DHT22 if using a DHT22 sensor
 #define MQ_PIN A0      // Analog pin connected to the MQ Gas Sensor (A0)
-#define BUZZER_PIN 5   // Buzzer connected to pin 5
-#define GAS_ALARM_THRESHOLD 450 // Trigger buzzer if gas level exceeds this
+#define BUZZER_PIN 13   // Buzzer connected to pin 10
+#define GAS_ALARM_THRESHOLD 100 // Trigger buzzer if gas level exceeds this
 
 // Initialize DHT sensor instance
 DHT dht(DHTPIN, DHTTYPE);
@@ -72,7 +72,14 @@ void loop() {
   // Returns an analog value between 0-1023 (or 0-4095 on ESP32) representing gas concentration
   float gasLevel = analogRead(MQ_PIN);
 
-  // 3. Transmit data to the Python Backend
+  // 3. Trigger Gas Alarm if threshold is exceeded
+  if (gasLevel > GAS_ALARM_THRESHOLD) {
+    digitalWrite(BUZZER_PIN, HIGH);
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
+  // 4. Transmit data to the Python Backend
   // The Python backend uses forgiving smart-regex, meaning we can include debug text
   // as long as the numbers appear in exactly this order: Temperature, Humidity, Gas Level.
   
