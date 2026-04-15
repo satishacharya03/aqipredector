@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 
@@ -28,6 +28,8 @@ interface HistoryRow {
 }
 
 const API = 'https://aqipredector.onrender.com'
+const STORAGE_KEY = 'aqi_history_local'
+const MAX_LOCAL_HISTORY = 100 // keep last 100 readings in browser
 
 // AQI 0–500 mapped to arc dashoffset (circumference r=140 → 879.6)
 function aqiOffset(aqi: number) {
@@ -35,29 +37,89 @@ function aqiOffset(aqi: number) {
   return 879.6 - pct * 879.6
 }
 
+function getNow(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+function loadLocalHistory(): HistoryRow[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw) as HistoryRow[]
+  } catch {}
+  return []
+}
+
+function saveLocalHistory(rows: HistoryRow[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
+  } catch {}
+}
 
 export default function Dashboard() {
   const [live, setLive] = useState<LiveData>({ temperature: 0, humidity: 0, gas_level: 0, predicted_aqi: 0 })
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [connected, setConnected] = useState(false)
+  const lastAqiRef = useRef<number>(0)
+
+  // On mount, load local history from browser storage
+  useEffect(() => {
+    const local = loadLocalHistory()
+    if (local.length > 0) setHistory(local)
+  }, [])
 
   const fetchLive = useCallback(async () => {
     try {
       const r = await fetch(`${API}/api/live`)
-      if (r.ok) { const j = await r.json(); setLive(j.data); setConnected(true) }
+      if (r.ok) {
+        const j = await r.json()
+        const data: LiveData = j.data
+        setLive(data)
+        setConnected(true)
+
+        // Only append a new point if AQI actually changed (new reading arrived)
+        if (data.predicted_aqi !== lastAqiRef.current && data.predicted_aqi > 0) {
+          lastAqiRef.current = data.predicted_aqi
+          const newRow: HistoryRow = {
+            Timestamp: getNow(),
+            Temperature: data.temperature,
+            Humidity: data.humidity,
+            Gas_Level: data.gas_level,
+            Predicted_AQI: data.predicted_aqi,
+          }
+          setHistory(prev => {
+            const updated = [...prev, newRow].slice(-MAX_LOCAL_HISTORY)
+            saveLocalHistory(updated)
+            return updated
+          })
+        }
+      }
     } catch { setConnected(false) }
   }, [])
 
+  // Try fetching server history too (JSON format), merge if available
   const fetchHistory = useCallback(async () => {
     try {
       const r = await fetch(`${API}/api/history`)
-      if (r.ok) { const j = await r.json(); setHistory(j.data) }
+      if (r.ok) {
+        const contentType = r.headers.get('content-type') ?? ''
+        if (contentType.includes('application/json')) {
+          const j = await r.json()
+          if (Array.isArray(j.data) && j.data.length > 0) {
+            setHistory(j.data)
+            saveLocalHistory(j.data)
+          }
+        }
+        // If CSV or unexpected format, silently fall back to localStorage version
+      }
     } catch {}
   }, [])
 
   useEffect(() => {
-    fetchLive(); fetchHistory()
-    const id = setInterval(() => { fetchLive(); fetchHistory() }, 2500)
+    fetchLive()
+    fetchHistory()
+    const id = setInterval(() => { fetchLive() }, 5000)
     return () => clearInterval(id)
   }, [fetchLive, fetchHistory])
 
@@ -66,7 +128,7 @@ export default function Dashboard() {
   const aqiColor = aqi <= 50 ? '#99f7ff' : aqi <= 100 ? '#fbbf24' : '#ff716c'
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       {/* Ambient Blobs */}
       <div className="ambient-glow bg-[#2f2ebe]" style={{ top: '-20%', left: '-10%' }} />
       <div className="ambient-glow bg-[#00f1fe]" style={{ bottom: '-10%', right: '-5%' }} />
@@ -100,7 +162,7 @@ export default function Dashboard() {
       </aside>
 
       {/* ── Main Content ──────────────────────── */}
-      <main className="pt-28 pb-12 px-8 lg:pl-24 max-w-[1600px] mx-auto grid grid-cols-12 gap-8">
+      <main className="flex-1 pt-28 pb-12 px-8 lg:pl-24 max-w-[1600px] mx-auto w-full grid grid-cols-12 gap-8">
 
         {/* Left: Large Radial AQI Gauge */}
         <section className="col-span-12 lg:col-span-7 xl:col-span-8 glass-panel rounded-xl p-10 flex flex-col items-center justify-center relative overflow-hidden">
@@ -160,7 +222,7 @@ export default function Dashboard() {
             </div>
             <div className="text-right">
               <p className="text-[#c6fff3] text-xs">Ambient</p>
-              <p className="text-[#a3abc0] text-[10px]">DHT ensor</p>
+              <p className="text-[#a3abc0] text-[10px]">DHT Sensor</p>
             </div>
           </div>
 
@@ -192,8 +254,8 @@ export default function Dashboard() {
                 <p className="font-headline text-3xl font-medium">{live.gas_level.toFixed(0)}<span className="text-[#a3abc0] text-lg">ppm</span></p>
               </div>
               <div className="text-right">
-              <p className="text-[#a3abc0] text-[10px]">MQ-135 Sensor</p>
-            </div>
+                <p className="text-[#a3abc0] text-[10px]">MQ-135 Sensor</p>
+              </div>
             </div>
             <div className="w-full bg-[#1a263c] h-1 rounded-full overflow-hidden">
               <div
@@ -206,14 +268,36 @@ export default function Dashboard() {
             </div>
             <p className="text-[#a3abc0] text-[10px] mt-2">Threshold: 1000 ppm (Safety Limit)</p>
           </div>
+
+          {/* History count badge */}
+          <div className="glass-panel rounded-xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-300">
+              <span className="material-symbols-outlined text-lg">history</span>
+            </div>
+            <div>
+              <p className="text-[#a3abc0] text-xs uppercase tracking-widest font-label">Saved Readings</p>
+              <p className="font-headline text-xl font-medium text-[#dde5fb]">{history.length} <span className="text-xs text-[#6d7589]">data points</span></p>
+            </div>
+            <button
+              onClick={() => { setHistory([]); saveLocalHistory([]) }}
+              title="Clear local history"
+              className="ml-auto text-[#40485a] hover:text-red-400 transition-colors text-xs flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-sm">delete</span>
+            </button>
+          </div>
         </aside>
 
         {/* Bottom: Area Chart */}
         <section className="col-span-12 glass-panel rounded-xl p-8">
-          <div className="flex justify-between items-end mb-10">
+          <div className="flex justify-between items-end mb-6">
             <div>
               <h3 className="font-headline text-[#a3abc0] text-sm uppercase tracking-[0.2em]">Temporal Analysis</h3>
               <p className="text-2xl font-headline font-bold text-[#dde5fb] mt-1">Pollution History Log</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-[#a3abc0]">
+              <span className="material-symbols-outlined text-sm text-indigo-400">storage</span>
+              <span>Saved in browser • up to {MAX_LOCAL_HISTORY} readings</span>
             </div>
           </div>
 
@@ -225,6 +309,17 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {/* ── Footer ────────────────────────────── */}
+      <footer className="w-full lg:pl-16 py-5 flex items-center justify-center border-t border-white/5 bg-slate-950/40 backdrop-blur-xl">
+        <p className="text-[#6d7589] text-xs tracking-wider font-label flex items-center gap-2">
+          Made by
+          <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent font-semibold font-headline">
+            Satish Acharya
+          </span>
+          with love&nbsp;💕
+        </p>
+      </footer>
     </div>
   )
 }
