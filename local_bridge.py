@@ -11,6 +11,9 @@ import re
 RENDER_URL = "https://aqipredector.onrender.com" 
 UPDATE_ENDPOINT = f"{RENDER_URL}/api/update"
 
+# Offset added to every raw gas reading (sensor reads low, so we boost it)
+GAS_OFFSET = 40
+
 BAUD_RATE = 115200
 SERIAL_PORT = 'COM3' # Set to 'COM3' etc. if auto-detect fails
 
@@ -53,7 +56,7 @@ def main():
                         payload = {
                             "temperature": float(numbers[0]),
                             "humidity": float(numbers[1]),
-                            "gas_level": float(numbers[2])
+                            "gas_level": float(numbers[2]) + GAS_OFFSET 
                         }
                         
                         # Send to Render

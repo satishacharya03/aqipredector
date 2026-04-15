@@ -18,7 +18,7 @@
 #define DHTTYPE DHT11  // Change to DHT22 if using a DHT22 sensor
 #define MQ_PIN A0      // Analog pin connected to the MQ Gas Sensor (A0)
 #define BUZZER_PIN 13   // Buzzer connected to pin 10
-#define GAS_ALARM_THRESHOLD 100 // Trigger buzzer if gas level exceeds this
+#define GAS_ALARM_THRESHOLD 200 // Trigger buzzer if gas level exceeds this
 
 // Initialize DHT sensor instance
 DHT dht(DHTPIN, DHTTYPE);

@@ -160,7 +160,7 @@ export default function Dashboard() {
             </div>
             <div className="text-right">
               <p className="text-[#c6fff3] text-xs">Ambient</p>
-              <p className="text-[#a3abc0] text-[10px]">ESP32 Sensor</p>
+              <p className="text-[#a3abc0] text-[10px]">DHT ensor</p>
             </div>
           </div>
 
@@ -191,6 +191,9 @@ export default function Dashboard() {
                 <p className="text-[#a3abc0] text-xs uppercase tracking-widest font-label">Gas Concentration</p>
                 <p className="font-headline text-3xl font-medium">{live.gas_level.toFixed(0)}<span className="text-[#a3abc0] text-lg">ppm</span></p>
               </div>
+              <div className="text-right">
+              <p className="text-[#a3abc0] text-[10px]">MQ-135 Sensor</p>
+            </div>
             </div>
             <div className="w-full bg-[#1a263c] h-1 rounded-full overflow-hidden">
               <div
